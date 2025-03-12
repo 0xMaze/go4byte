@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	fnprocessor "fourbyte/fn_processor"
+	fnprocessor "fourbyte/fnprocessor"
 	"os"
 	"strings"
 
