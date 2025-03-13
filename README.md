@@ -26,6 +26,8 @@ fbyte --sig "<function signature>" [flags]
 | `--abi`    | `-a`      | Generate function ABI JSON                  |
 | `--four`   | `-f`      | Calculate 4-byte function selector          |
 | `--sig`    | `-s`      | Function signature (required)               |
+| `--exp`    | `-e`      | Export generated ABI                        |
+| `--out`    | `-o`      | Export file path                            |
 
 ## Examples
 
