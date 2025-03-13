@@ -2,7 +2,10 @@ package fnprocessor
 
 import (
 	"encoding/json"
+	"fbyte/cli/export"
+
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -12,11 +15,13 @@ type ABIParameter struct {
 }
 
 type ABIEntry struct {
-	Name            string          `json:"name"`
-	Type            string          `json:"type"`
+	Constant        bool            `json:"constant"`
 	Inputs          []ABIParameter  `json:"inputs"`
+	Name            string          `json:"name"`
 	Outputs         []ABIParameter  `json:"outputs"`
+	Payable         bool            `json:"payable"`
 	StateMutability StateMutability `json:"stateMutability"`
+	Type            string          `json:"type"`
 }
 
 type StateMutability string
@@ -28,21 +33,39 @@ const (
 	Payable    StateMutability = "payable"
 )
 
-func (fs *FnSig) GenerateABI() (string, error) {
+func (fs *FnSig) GenerateABI(expOpts export.ExportOptions) (string, error) {
 	fnName, inputParams, err := fs.parse()
 	if err != nil {
 		return "", err
 	}
 
+	sm := fs.determineStateMutability()
+	payable := sm == Payable
+	constant := sm == View || sm == Pure
+
 	abiEntry := ABIEntry{
+		Constant:        constant,
 		Name:            string(fnName),
 		Type:            "function",
 		Inputs:          buildInputParameters(inputParams),
 		Outputs:         parseOutputs(fs.getOutputsPart()),
-		StateMutability: fs.determineStateMutability(),
+		StateMutability: sm,
+		Payable:         payable,
 	}
 
-	return marshalABI(abiEntry)
+	abi, err := marshalABI(abiEntry)
+
+	if err != nil {
+		return "", err
+	}
+
+	if expOpts.Export {
+		if err := ExportABI(abi, expOpts.Path); err != nil {
+			return "", err
+		}
+	}
+
+	return abi, nil
 }
 
 func buildInputParameters(params []Param) []ABIParameter {
@@ -156,4 +179,12 @@ func marshalABI(entry ABIEntry) (string, error) {
 		return "", fmt.Errorf("failed to marshal ABI: %w", err)
 	}
 	return string(jsonBytes), nil
+}
+
+func ExportABI(abi string, filePath string) error {
+	if err := os.WriteFile(filePath, []byte(abi), 0644); err != nil {
+		return fmt.Errorf("failed to write ABI file: %w", err)
+	}
+
+	return nil
 }

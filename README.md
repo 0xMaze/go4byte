@@ -52,21 +52,22 @@ fbyte -s "function approve(address spender, uint256 value)" -f
   "type": "function",
   "inputs": [
     {
-      "type": "address",
-      "name": "to"
+      "name": "to",
+      "type": "address"
     },
     {
-      "type": "uint256",
-      "name": "amount"
+      "name": "amount",
+      "type": "uint256"
     }
   ],
-  "outputs": []
+  "outputs": null,
+  "stateMutability": "nonpayable"
 }
 ```
 
 ### 4-byte Selector Output
 ```
-0xa0b8ec92
+0xa9059cbb
 ```
 
 ## How It Works

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fbyte/cli/export"
 	"fmt"
 	"os"
 	"strings"
@@ -15,7 +16,17 @@ func runCommand(cmd *cobra.Command, args []string) {
 			return
 		}
 
-		output, err := executeTasks()
+		var initFns []export.ExportOptFunc
+		if exp {
+			initFns = append(initFns, export.WithExport)
+		}
+		if !(outStr == "") {
+			initFns = append(initFns, export.WithExportPath(outStr))
+		}
+
+		exportOps := export.NewExportOpts(initFns...)
+
+		output, err := executeTasks(exportOps)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -27,8 +38,8 @@ func runCommand(cmd *cobra.Command, args []string) {
 	}
 }
 
-func executeTasks() (string, error) {
-	tasks := createTasks()
+func executeTasks(exportOps export.ExportOptions) (string, error) {
+	tasks := createTasks(exportOps)
 	return processTasks(tasks)
 }
 
@@ -38,11 +49,14 @@ type task struct {
 	errMsg string
 }
 
-func createTasks() []task {
+func createTasks(exportOpts export.ExportOptions) []task {
 	var tasks []task
 	if cfg.abiFlag {
 		tasks = append(tasks, task{
-			run:    cfg.sig.GenerateABI,
+			run: func() (string, error) {
+				fmt.Printf("export: %v\n", exportOpts.Path)
+				return cfg.sig.GenerateABI(exportOpts)
+			},
 			header: "ABI:",
 			errMsg: "Error generating ABI:",
 		})
@@ -54,6 +68,7 @@ func createTasks() []task {
 			errMsg: "Error calculating four-byte hash:",
 		})
 	}
+
 	return tasks
 }
 
