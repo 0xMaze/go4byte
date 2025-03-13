@@ -1,7 +1,7 @@
 package cli
 
 import (
-	fnprocessor "fourbyte/fnprocessor"
+	fnprocessor "fbyte/fnprocessor"
 
 	"github.com/spf13/cobra"
 )

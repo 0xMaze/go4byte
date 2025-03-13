@@ -1,4 +1,4 @@
-module fourbyte
+module fbyte
 
 go 1.24.0
 

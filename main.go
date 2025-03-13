@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fourbyte/cli"
+	"fbyte/cli"
 	"log"
 )
 
