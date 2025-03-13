@@ -14,7 +14,7 @@ func (fs *FnSig) Canonical() (CanonicalFnSig, error) {
 	}
 	var types []string
 	for _, p := range paramTypes {
-		types = append(types, string(p))
+		types = append(types, string(p.Type))
 	}
 	canonical := fmt.Sprintf("%s(%s)", fnName, strings.Join(types, ","))
 	return CanonicalFnSig(canonical), nil

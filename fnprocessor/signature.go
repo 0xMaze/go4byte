@@ -12,6 +12,11 @@ type FnSig string
 type ParamType string
 type FnName string
 
+type Param struct {
+	Type ParamType
+	Name string
+}
+
 func NewFnSig(s string) FnSig {
 	return FnSig(strings.TrimSpace(s))
 }
@@ -33,7 +38,7 @@ func (fs *FnSig) Type() string {
 	return "string"
 }
 
-func (fs *FnSig) parse() (FnName, []ParamType, error) {
+func (fs *FnSig) parse() (FnName, []Param, error) {
 	sig := strings.TrimSpace(fs.String())
 
 	sig = strings.TrimPrefix(sig, "function ")
@@ -51,19 +56,29 @@ func (fs *FnSig) parse() (FnName, []ParamType, error) {
 	fnName := strings.TrimSpace(sig[:openParen])
 	paramsStr := sig[openParen+1 : closeParen]
 
-	var paramTypes []ParamType
+	var params []Param
 	for param := range strings.SplitSeq(paramsStr, ",") {
 		param = strings.TrimSpace(param)
 		if param == "" {
 			continue
 		}
+
 		parts := strings.Fields(param)
-		if len(parts) > 0 {
-			paramTypes = append(paramTypes, ParamType(parts[0]))
+		if len(parts) == 0 {
+			continue
 		}
+
+		p := Param{
+			Type: ParamType(parts[0]),
+		}
+		if len(parts) > 1 {
+			p.Name = parts[1]
+		}
+
+		params = append(params, p)
 	}
 
-	return FnName(fnName), paramTypes, nil
+	return FnName(fnName), params, nil
 }
 
 func (fs *FnSig) FourBytes() (string, error) {

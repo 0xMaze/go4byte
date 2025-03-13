@@ -2,6 +2,7 @@ package fnprocessor
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -28,93 +29,131 @@ const (
 )
 
 func (fs *FnSig) GenerateABI() (string, error) {
-	s := strings.TrimSpace(fs.String())
-	var outputsPart string
-	if idx := strings.Index(s, "returns"); idx != -1 {
-		outputsPart = strings.TrimSpace(s[idx:])
-	}
-
-	fnName, inputParamTypes, err := fs.parse()
+	fnName, inputParams, err := fs.parse()
 	if err != nil {
 		return "", err
-	}
-	var inputs []ABIParameter
-
-	for _, p := range inputParamTypes {
-		inputs = append(inputs, ABIParameter{
-			Name: "",
-			Type: string(p),
-		})
-	}
-
-	var outputs []ABIParameter
-	if outputsPart != "" {
-		outputsPart = strings.TrimPrefix(outputsPart, "returns")
-		outputsPart = strings.TrimSpace(outputsPart)
-		if strings.HasPrefix(outputsPart, "(") && strings.HasSuffix(outputsPart, ")") {
-			outputsPart = outputsPart[1 : len(outputsPart)-1]
-		}
-		for {
-			var token string
-			token, outputsPart, found := strings.Cut(outputsPart, ",")
-			token = strings.TrimSpace(token)
-			if token != "" {
-				parts := strings.Fields(token)
-				var outType, outName string
-				outType = parts[0]
-				if len(parts) > 1 {
-					outName = parts[1]
-				}
-				outputs = append(outputs, ABIParameter{
-					Name: outName,
-					Type: outType,
-				})
-			}
-			if !found {
-				if len(outputsPart) > 0 {
-					token = strings.TrimSpace(outputsPart)
-					if token != "" {
-						parts := strings.Fields(token)
-						var outType, outName string
-						outType = parts[0]
-						if len(parts) > 1 {
-							outName = parts[1]
-						}
-						outputs = append(outputs, ABIParameter{
-							Name: outName,
-							Type: outType,
-						})
-					}
-				}
-				break
-			}
-		}
-	}
-
-	closeParen := strings.Index(fs.String(), ")")
-	modifiers := ""
-	if closeParen != -1 && closeParen+1 < len(fs.String()) {
-		modifiers = strings.TrimSpace(fs.String()[closeParen+1:])
-	}
-	stateMutability := NonPayable
-	if strings.Contains(modifiers, string(View)) {
-		stateMutability = View
-	} else if strings.Contains(modifiers, string(Pure)) {
-		stateMutability = Pure
-	} else if strings.Contains(modifiers, string(Payable)) {
-		stateMutability = Payable
 	}
 
 	abiEntry := ABIEntry{
 		Name:            string(fnName),
 		Type:            "function",
-		Inputs:          inputs,
-		Outputs:         outputs,
-		StateMutability: stateMutability,
+		Inputs:          buildInputParameters(inputParams),
+		Outputs:         parseOutputs(fs.getOutputsPart()),
+		StateMutability: fs.determineStateMutability(),
 	}
-	jsonBytes, err := json.MarshalIndent(abiEntry, "", "  ")
+
+	return marshalABI(abiEntry)
+}
+
+func buildInputParameters(params []Param) []ABIParameter {
+	inputs := make([]ABIParameter, 0, len(params))
+	for _, p := range params {
+		inputs = append(inputs, ABIParameter{
+			Name: p.Name,
+			Type: string(p.Type),
+		})
+	}
+	return inputs
+}
+
+func (fs *FnSig) getOutputsPart() string {
+	s := strings.TrimSpace(fs.String())
+	if idx := strings.Index(s, "returns"); idx != -1 {
+		return strings.TrimSpace(s[idx:])
+	}
+	return ""
+}
+
+func parseOutputs(outputsPart string) []ABIParameter {
+	if outputsPart == "" {
+		return nil
+	}
+
+	outputsPart = strings.TrimPrefix(outputsPart, "returns")
+	outputsPart = strings.TrimSpace(outputsPart)
+
+	if strings.HasPrefix(outputsPart, "(") && strings.HasSuffix(outputsPart, ")") {
+		outputsPart = outputsPart[1 : len(outputsPart)-1]
+	}
+
+	return parseParameterList(outputsPart)
+}
+
+func parseParameterList(paramStr string) []ABIParameter {
+	var params []ABIParameter
+	var current strings.Builder
+	depth := 0
+
+	for _, r := range paramStr {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				params = append(params, parseParamToken(current.String()))
+				current.Reset()
+				continue
+			}
+		}
+		current.WriteRune(r)
+	}
+
+	if current.Len() > 0 {
+		params = append(params, parseParamToken(current.String()))
+	}
+
+	return params
+}
+
+func parseParamToken(token string) ABIParameter {
+	token = strings.TrimSpace(token)
+	parts := strings.Fields(token)
+	if len(parts) == 0 {
+		return ABIParameter{}
+	}
+
+	outType := parts[0]
+	var outName string
+	if len(parts) > 1 {
+		outName = parts[1]
+	}
+
+	return ABIParameter{
+		Type: outType,
+		Name: outName,
+	}
+}
+
+func (fs *FnSig) determineStateMutability() StateMutability {
+	modifiers := fs.getModifiers()
+	for _, m := range strings.Fields(modifiers) {
+		switch strings.ToLower(m) {
+		case string(View):
+			return View
+		case string(Pure):
+			return Pure
+		case string(Payable):
+			return Payable
+		}
+	}
+	return NonPayable
+}
+
+func (fs *FnSig) getModifiers() string {
+	s := fs.String()
+	closeParen := strings.Index(s, ")")
+	if closeParen == -1 || closeParen+1 >= len(s) {
+		return ""
+	}
+	return strings.TrimSpace(s[closeParen+1:])
+}
+
+func marshalABI(entry ABIEntry) (string, error) {
+	jsonBytes, err := json.MarshalIndent(entry, "", "  ")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to marshal ABI: %w", err)
 	}
 	return string(jsonBytes), nil
 }

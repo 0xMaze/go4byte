@@ -27,7 +27,7 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.Flags().BoolVar(&cfg.abiFlag, "abi", false, "Generate function's ABI")
-	rootCmd.Flags().BoolVar(&cfg.hashFlag, "hash", false, "Calculate 4-byte signature of a function")
+	rootCmd.Flags().BoolVarP(&cfg.abiFlag, "abi", "a", false, "Generate function's ABI")
+	rootCmd.Flags().BoolVarP(&cfg.hashFlag, "four", "f", false, "Calculate 4-byte signature of a function")
 	rootCmd.Flags().VarP(&cfg.sig, "sig", "s", "Solidity function signature")
 }
